@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent RoboCar 互動學習航線</title>
+<style>
+:root{--paper:#eef2f5;--ink:#14212b;--road:#37444f;--lane:#f2c230;--sig:#0e8a7d;--red:#d64545;--card:#fff;--mute:#5d6b76;--line:#cfd8df}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+header{background:var(--road);color:#fff;padding:56px 20px 44px;position:relative;overflow:hidden}
+header:after{content:"";position:absolute;left:0;right:0;bottom:18px;height:4px;background:repeating-linear-gradient(90deg,var(--lane) 0 36px,transparent 36px 64px);animation:dash 6s linear infinite}
+@keyframes dash{to{background-position:-128px 0}}
+@media(prefers-reduced-motion:reduce){header:after{animation:none}}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:clamp(30px,6vw,52px);line-height:1.15;margin:0 0 12px;letter-spacing:.02em}
+header p{margin:0;max-width:34em;color:#d7e0e6}
+nav{position:sticky;top:0;z-index:5;background:var(--ink);display:flex;gap:4px;padding:6px 10px;overflow-x:auto}
+nav a{color:#cfd8df;text-decoration:none;padding:6px 14px;border-radius:6px;white-space:nowrap;font-size:15px}
+nav a:hover,nav a:focus-visible{background:var(--sig);color:#fff;outline:none}
+section{padding:44px 20px}
+h2{font-size:28px;margin:0 0 6px}
+.lead{color:var(--mute);margin:0 0 22px;max-width:42em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+button,select,input[type=text]{font:inherit}
+button{background:var(--ink);color:#fff;border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+button:hover{background:var(--sig)}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--lane);outline-offset:2px}
+button.alt{background:#fff;color:var(--ink);border:1px solid var(--ink)}button.alt:hover{background:var(--lane)}
+.sim{display:grid;gap:16px;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+@media(max-width:760px){.sim{grid-template-columns:1fr}}
+canvas{width:100%;height:auto;background:#dfe6eb;border-radius:8px;display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--ink);border-radius:6px;overflow:hidden}
+.seg button{border-radius:0;background:#fff;color:var(--ink)}.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+#log{height:300px;overflow:auto;font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;background:#101a22;color:#d7e0e6;border-radius:8px;padding:10px}
+#log .t{color:#8fd3ff}#log .a{color:var(--lane)}#log .o{color:#7ee0b5}#log .e{color:#ff8f8f}
+.sens{display:flex;gap:8px;margin:10px 0 0}.sens div{flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;text-align:center;font-size:14px}
+.sens b{display:block;font-size:22px;color:var(--sig)}
+.layer{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.layer button{flex:1;min-width:140px;background:#fff;color:var(--ink);border:2px solid var(--road);padding:14px 10px;border-radius:8px;text-align:center}
+.layer button[aria-pressed=true]{background:var(--road);color:#fff;border-color:var(--lane)}
+.arrow{align-self:center;color:var(--mute)}
+pre{background:#101a22;color:#d7e0e6;padding:14px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.55;margin:0}
+.q{margin:0 0 18px}.q p{font-weight:700;margin:0 0 6px}
+.q label{display:block;padding:6px 10px;border:1px solid var(--line);border-radius:6px;margin:4px 0;cursor:pointer;background:#fff}
+.q label.ok{border-color:var(--sig);background:#e2f4f1}.q label.no{border-color:var(--red);background:#fbe7e7}
+.fb{font-size:14px;color:var(--mute);margin-top:4px}
+.step{border-left:4px solid var(--lane);padding:4px 0 4px 14px;margin:0 0 14px}
+footer{padding:30px 20px;color:var(--mute);text-align:center;font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>AI Agent RoboCar<br>讓語言模型開車的學習航線</h1>
+<p>從感測器到大腦：先在瀏覽器裡操控虛擬小車，看懂 Agent 如何「感知 → 思考 → 行動」，再動手組裝真實 RoboCar。</p>
+</div></header>
+<nav aria-label="章節">
+<a href="#sim">模擬器</a><a href="#arch">系統架構</a><a href="#tools">工具呼叫</a><a href="#build">動手做</a><a href="#quiz">測驗</a>
+</nav>
+
+<section id="sim"><div class="wrap">
+<h2>1. 虛擬小車：觀察 Agent 迴圈</h2>
+<p class="lead">黃色三角形是小車，線條是超音波感測器。選一種大腦，按「開始」，右側會逐步顯示它的想法（Thought）、動作（Action）和觀察（Observation）。</p>
+<div class="sim">
+<div class="card">
+<canvas id="cv" width="480" height="320" aria-label="迷宮與小車"></canvas>
+<div class="sens"><div>前方<b id="sF">0</b></div><div>左側<b id="sL">0</b></div><div>右側<b id="sR">0</b></div><div>步數<b id="sS">0</b></div></div>
+<div class="bar">
+<span class="seg" role="group" aria-label="大腦模式">
+<button id="m-reflex" aria-pressed="true">反應式規則</button>
+<button id="m-plan" aria-pressed="false">規劃式 Agent</button>
+<button id="m-cmd" aria-pressed="false">語言指令</button></span>
+</div>
+<div class="bar"><button id="go">開始</button><button id="step" class="alt">單步</button><button id="reset" class="alt">重置</button>
+<label>速度 <input id="spd" type="range" min="1" max="10" value="6"></label></div>
+<div class="bar" id="cmdRow" hidden><input id="cmd" type="text" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--ink);border-radius:6px" value="前進3格，右轉，前進2格" aria-label="語言指令"><button id="send">送出指令</button></div>
+</div>
+<div><div id="log" role="log" aria-live="polite"></div>
+<p class="fb" id="modeNote"></p></div>
+</div></div></section>
+
+<section id="arch" style="background:#fff"><div class="wrap">
+<h2>2. 系統架構：四層分工</h2>
+<p class="lead">點選每一層，看它負責什麼。重點是：LLM 不直接控制馬達，只透過「工具」下達高階指令。</p>
+<div class="layer" id="layers"></div>
+<div class="card" style="margin-top:14px" id="layerInfo" aria-live="polite"></div>
+</div></section>
+
+<section id="tools"><div class="wrap">
+<h2>3. 工具呼叫：把車子包成函式</h2>
+<p class="lead">Agent 能做的事，等於你定義的工具。下面是給 LLM 的工具描述，模擬器的「語言指令」模式就是用同樣的概念執行。</p>
+<div class="grid">
+<pre>[
+ {"name":"move_forward",
+  "description":"前進 n 格，遇牆會停",
+  "parameters":{"n":"integer"}},
+ {"name":"turn",
+  "description":"原地轉向",
+  "parameters":{"dir":"left|right|back"}},
+ {"name":"read_distance",
+  "description":"讀取前/左/右距離",
+  "parameters":{}},
+ {"name":"stop","parameters":{}}
+]</pre>
+<div class="card"><div class="step"><b>使用者說</b><br>前進 3 格，右轉，前進 2 格</div>
+<div class="step"><b>LLM 輸出</b><br>move_forward(3) → turn(right) → move_forward(2)</div>
+<div class="step"><b>小車回報</b><br>每個工具都回傳 Observation，例如「前方 0 格，撞牆」，LLM 再依此修正計畫。</div>
+<button class="alt" onclick="location.hash='sim';document.getElementById('m-cmd').click()">到模擬器試試</button></div>
+</div></div></section>
+
+<section id="build" style="background:#fff"><div class="wrap">
+<h2>4. 動手做：從虛擬到真實</h2>
+<p class="lead">建議依序完成，每一步都能獨立驗證。</p>
+<div class="grid">
+<div class="card"><b>硬體清單</b><ul><li>ESP32 開發板（Wi-Fi 連線）</li><li>雙馬達驅動板 + 兩輪底盤</li><li>HC-SR04 超音波感測器（前／左／右）</li><li>電池與穩壓模組</li></ul></div>
+<div class="card"><b>實作階段</b>
+<div class="step">先讓馬達前進、後退、轉彎</div>
+<div class="step">讀取超音波，在序列埠印出距離</div>
+<div class="step">寫成 HTTP API：/forward、/turn、/distance</div>
+<div class="step">在電腦端用 LLM 呼叫這些 API，形成 Agent 迴圈</div></div>
+<div class="card"><b>安全提醒</b><ul><li>每個動作設定逾時，斷線就停車</li><li>前方距離過近時，由車上韌體直接煞車，不等 LLM</li><li>先把車架高輪子再測試</li></ul></div>
+</div></div></section>
+
+<section id="quiz"><div class="wrap">
+<h2>5. 小測驗</h2><div id="qz"></div><div class="card" id="score" hidden></div>
+</div></section>
+<footer>AI Agent RoboCar · 以 Claude 生成，可直接放上 GitHub Pages</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+/* ---------- 迷宮與小車 ---------- */
+const MAP=["############","#S..#......#","#.#.#.####.#","#.#...#..#.#","#.####.#.#.#","#......#...#","#.######.#G#","############"];
+const C=40,DX=[0,1,0,-1],DY=[-1,0,1,0],DN=["上","右","下","左"];
+let car,steps,queue,timer,mode='reflex',done,goal;
+const cv=$('cv'),g=cv.getContext('2d');
+const free=(x,y)=>MAP[y]&&MAP[y][x]&&MAP[y][x]!=='#';
+function reset(){
+ for(let y=0;y<MAP.length;y++)for(let x=0;x<MAP[y].length;x++){if(MAP[y][x]==='S')car={x,y,d:1};if(MAP[y][x]==='G')goal={x,y}}
+ steps=0;queue=[];done=false;stop();$('log').innerHTML='';draw();sense();
+ say('o','系統就緒。目前模式：'+({reflex:'反應式規則',plan:'規劃式 Agent',cmd:'語言指令'})[mode]);
+}
+function dist(rel){const d=(car.d+rel+4)%4;let n=0,x=car.x+DX[d],y=car.y+DY[d];while(free(x,y)){n++;x+=DX[d];y+=DY[d]}return n}
+function sense(){const o={front:dist(0),left:dist(-1),right:dist(1)};$('sF').textContent=o.front;$('sL').textContent=o.left;$('sR').textContent=o.right;$('sS').textContent=steps;return o}
+function say(c,t){const l=$('log'),p=document.createElement('div');p.className=c;p.textContent=t;l.appendChild(p);l.scrollTop=l.scrollHeight}
+function draw(){
+ g.clearRect(0,0,480,320);
+ for(let y=0;y<8;y++)for(let x=0;x<12;x++){const c=MAP[y][x];
+  g.fillStyle=c==='#'?'#37444f':'#f4f7f9';g.fillRect(x*C,y*C,C,C);
+  if(c!=='#'){g.strokeStyle='#dfe6eb';g.strokeRect(x*C,y*C,C,C)}}
+ g.fillStyle='#0e8a7d';g.fillRect(goal.x*C+6,goal.y*C+6,C-12,C-12);
+ g.fillStyle='#fff';g.font='bold 16px sans-serif';g.textAlign='center';g.fillText('G',goal.x*C+C/2,goal.y*C+26);
+ const cx=car.x*C+C/2,cy=car.y*C+C/2;
+ [-1,0,1].forEach(r=>{const d=(car.d+r+4)%4,n=dist(r);g.strokeStyle='#d64545';g.lineWidth=2;g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+DX[d]*(n*C+C/2-4),cy+DY[d]*(n*C+C/2-4));g.stroke()});
+ g.save();g.translate(cx,cy);g.rotate(car.d*Math.PI/2);g.fillStyle='#f2c230';g.strokeStyle='#14212b';g.lineWidth=2;
+ g.beginPath();g.moveTo(0,-14);g.lineTo(11,12);g.lineTo(-11,12);g.closePath();g.fill();g.stroke();g.restore();
+}
+/* ---------- 原子動作（工具）---------- */
+function fwd(){if(dist(0)<1)return '前方是牆，無法前進';car.x+=DX[car.d];car.y+=DY[car.d];steps++;return '前進 1 格，位置 ('+car.x+','+car.y+')'}
+function turn(r){car.d=(car.d+r+4)%4;steps++;return '朝向「'+DN[car.d]+'」'}
+const atGoal=()=>car.x===goal.x&&car.y===goal.y;
+/* ---------- 大腦 ---------- */
+function bfs(){
+ const key=(x,y,d)=>x+','+y+','+d,seen={},q=[[car.x,car.y,car.d,[]]];seen[key(car.x,car.y,car.d)]=1;
+ while(q.length){const [x,y,d,p]=q.shift();if(x===goal.x&&y===goal.y)return p;
+  [[x,y,(d+1)%4,[['turn',1]]],[x,y,(d+3)%4,[['turn',-1]]],[x+DX[d],y+DY[d],d,[['fwd']]]].forEach(([nx,ny,nd,a])=>{
+   if(free(nx,ny)&&!seen[key(nx,ny,nd)]){seen[key(nx,ny,nd)]=1;q.push([nx,ny,nd,p.concat(a)])}})}
+ return null}
+function reflexPlan(o){
+ if(o.right>0)return ['右側有空間，靠右牆行進策略 → 右轉',['turn',1]];
+ if(o.front>0)return ['右側被擋、前方通暢 → 前進',['fwd']];
+ if(o.left>0)return ['前、右皆被擋，左側通暢 → 左轉',['turn',-1]];
+ return ['死路 → 迴轉',['turn',1]]}
+function tick(){
+ if(done)return stop();
+ if(atGoal()){done=true;say('o','抵達終點！共 '+steps+' 步。');stop();return}
+ if(steps>300){say('e','超過 300 步仍未到達，這個策略可能卡住了。');done=true;stop();return}
+ let act;
+ if(mode==='reflex'){const o=sense();say('t','Thought: 前'+o.front+' 左'+o.left+' 右'+o.right);const [why,a]=reflexPlan(o);say('t','  '+why);
+  /* 右轉後下一步才前進：右轉後若可前進則立即前進 */
+  act=a;
+  if(a[0]==='turn'&&a[1]===1&&o.right>0){queue=[['fwd']]}}
+ else{
+  if(!queue.length){if(mode==='plan'){const p=bfs();if(!p){say('e','找不到路徑');done=true;stop();return}queue=p;say('t','Thought: 以 BFS 規劃出路徑，共 '+p.length+' 個動作')}
+   else{if(!$('log').dataset.waiting){say('o','指令已完成，等待新指令。');$('log').dataset.waiting=1}stop();return}}
+  act=queue.shift()}
+ const obs=act[0]==='fwd'?(say('a','Action: move_forward(1)'),fwd()):(say('a','Action: turn('+(act[1]>0?'right':'left')+')'),turn(act[1]));
+ say('o','Observation: '+obs);
+ if(obs.indexOf('牆')>0){queue=[];say('e','動作失敗，清除剩餘計畫')}
+ draw();sense();
+ if(mode==='reflex'&&queue.length){const n=queue.shift();say('a','Action: move_forward(1)');say('o','Observation: '+fwd());draw();sense()}
+}
+function stop(){clearInterval(timer);timer=null;$('go').textContent='開始'}
+function start(){if(timer)return stop();if(mode==='cmd')delete $('log').dataset.waiting;$('go').textContent='暫停';timer=setInterval(tick,1100-$('spd').value*95)}
+/* ---------- 語言指令解析（模擬 LLM 的 tool calling）---------- */
+const NUM={一:1,二:2,兩:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
+function parse(t){
+ const out=[];
+ t.split(/[,，。;；、\s]+|然後|接著|再/).forEach(s=>{
+  if(!s)return;let m;
+  if(m=s.match(/前進\s*(\d+|[一二兩三四五六七八九十])?/)){const n=m[1]?(NUM[m[1]]||+m[1]):1;out.push({tool:'move_forward',args:{n}})}
+  else if(/左轉/.test(s))out.push({tool:'turn',args:{dir:'left'}});
+  else if(/右轉/.test(s))out.push({tool:'turn',args:{dir:'right'}});
+  else if(/迴轉|掉頭|後轉/.test(s))out.push({tool:'turn',args:{dir:'back'}});
+  else if(/終點|目標|goal/i.test(s))out.push({tool:'goto_goal',args:{}});
+  else if(/停/.test(s))out.push({tool:'stop',args:{}});});
+ return out}
+function sendCmd(){
+ const calls=parse($('cmd').value);delete $('log').dataset.waiting;
+ if(!calls.length){say('e','聽不懂這個指令。試試「前進2格，左轉」或「去終點」。');return}
+ say('t','LLM 解析：'+$('cmd').value);
+ calls.forEach(c=>{say('a','tool_call: '+c.tool+'('+JSON.stringify(c.args)+')');
+  if(c.tool==='move_forward')for(let i=0;i<c.args.n;i++)queue.push(['fwd']);
+  else if(c.tool==='turn')queue.push(['turn',c.args.dir==='left'?-1:1]),c.args.dir==='back'&&queue.push(['turn',1]);
+  else if(c.tool==='goto_goal'){const p=bfs();if(p)queue.push(...p)}
+  else if(c.tool==='stop')queue.push(['fwd','skip'])});
+ queue=queue.filter(a=>a[1]!=='skip');
+ if(!timer)start()}
+function setMode(m){mode=m;['reflex','plan','cmd'].forEach(k=>$('m-'+k).setAttribute('aria-pressed',k===m));
+ $('cmdRow').hidden=m!=='cmd';
+ $('modeNote').textContent={reflex:'反應式：只看當下感測值，用「靠右牆」規則走。簡單、不用規劃，但無法保證在所有地圖成功。',plan:'規劃式：先把地圖建成模型，用 BFS 找出最短路徑再執行，像 Agent 先思考再行動。',cmd:'語言指令：輸入自然語言，系統轉成工具呼叫。可說「前進3格」「右轉」「去終點」。'}[m];reset()}
+['reflex','plan','cmd'].forEach(k=>$('m-'+k).onclick=()=>setMode(k));
+$('go').onclick=start;$('step').onclick=()=>{stop();tick()};$('reset').onclick=reset;$('send').onclick=sendCmd;
+$('spd').oninput=()=>{if(timer){stop();start()}};
+$('cmd').addEventListener('keydown',e=>{if(e.key==='Enter')sendCmd()});
+/* ---------- 架構 ---------- */
+const L=[["使用者","說出目標，例如「去終點」或「繞過障礙到門口」。可以是文字或語音。"],
+["LLM Agent 大腦","理解目標、拆解步驟、決定呼叫哪個工具，並根據 Observation 修正計畫（ReAct 迴圈）。可用雲端模型，或在本機執行小模型。"],
+["工具層 API","把車子能力包成函式：move_forward、turn、read_distance。負責檢查參數、設定逾時，並回傳可讀的結果給 LLM。"],
+["車上硬體","ESP32 控制馬達與超音波。即時安全規則（如太近就煞車）放在這裡，不依賴網路與 LLM。"]];
+const lay=$('layers');
+L.forEach((l,i)=>{const b=document.createElement('button');b.textContent=l[0];b.setAttribute('aria-pressed',i===1);b.onclick=()=>pick(i);lay.appendChild(b);if(i<3){const s=document.createElement('span');s.className='arrow';s.textContent='▶';lay.appendChild(s)}});
+function pick(i){[...lay.querySelectorAll('button')].forEach((b,j)=>b.setAttribute('aria-pressed',i===j));$('layerInfo').innerHTML='<b>'+L[i][0]+'</b><br>'+L[i][1]}
+pick(1);
+/* ---------- 測驗 ---------- */
+const Q=[["Agent 迴圈的正確順序是？",["感知 → 思考 → 行動","行動 → 感知 → 思考","思考 → 行動 → 重新開機"],0,"Agent 先觀察環境，思考下一步，再行動，然後回到觀察。"],
+["為什麼緊急煞車要放在車上韌體，而不交給 LLM？",["LLM 不會計算距離","網路與模型有延遲，安全反應必須即時","韌體比較便宜"],1,"安全相關反應要在本地、確定時間內完成。"],
+["「工具呼叫」的作用是？",["讓 LLM 以固定格式呼叫車子的功能","讓馬達變快","取代感測器"],0,"LLM 輸出函式名稱與參數，系統負責執行並回傳結果。"],
+["規劃式 Agent 相比反應式規則的優點？",["不需要地圖也能走","可先找出最短路徑再行動","一定不會撞牆"],1,"規劃式需要環境模型，換來更有效率的路線。"]];
+let ans=0,cnt=0;const qz=$('qz');
+Q.forEach((q,i)=>{const d=document.createElement('div');d.className='q';d.innerHTML='<p>'+(i+1)+'. '+q[0]+'</p>';
+ q[1].forEach((o,j)=>{const l=document.createElement('label');l.innerHTML='<input type="radio" name="q'+i+'"> '+o;
+  l.querySelector('input').onchange=()=>{if(d.dataset.done)return;d.dataset.done=1;cnt++;
+   [...d.querySelectorAll('label')].forEach((x,k)=>{x.classList.toggle('ok',k===q[2]);if(k===j&&j!==q[2])x.classList.add('no')});
+   if(j===q[2])ans++;const f=document.createElement('div');f.className='fb';f.textContent=(j===q[2]?'答對了。':'再想想。')+q[3];d.appendChild(f);
+   if(cnt===Q.length){const s=$('score');s.hidden=false;s.innerHTML='<b>得分 '+ans+' / '+Q.length+'</b>　'+(ans===Q.length?'你已掌握 Agent 迴圈，可以開始組車了。':'回到模擬器多觀察幾次 Thought / Action / Observation。')}};
+  d.appendChild(l)});qz.appendChild(d)});
+setMode('reflex');
+</script>
+</body>
+</html>
